@@ -14,7 +14,7 @@ public:
 };
 
 int main() {
-    MyHotLoadTask task("../config1.json");
+    MyHotLoadTask task("config1.json");
 
     if (HotLoader::instance().init() != 0) {
         std::cerr << "Failed to initialize HotLoader" << std::endl;
@@ -34,11 +34,17 @@ int main() {
     std::cout << "HotLoader is running. Press Enter to stop..." << std::endl;
 
     std::thread([]() {
-        // Simulate some work in the main thread
-        HotLoader::instance().register_task(new MyHotLoadTask("../config2.cpp"), HotLoader::OWN_TASK);
+        int ret;
+        ret = HotLoader::instance().register_task(new MyHotLoadTask("config2.json"), HotLoader::OWN_TASK);
+        if (ret != 0) {
+            std::cerr << "Failed to register task: " << ret << std::endl;
+        } else {
+            std::cout << "Task registered successfully." << std::endl;
+        }
         std::this_thread::sleep_for(std::chrono::seconds(10));
-        if (HotLoader::instance().unregister_task("../test.cpp") != 0) {
-            std::cerr << "Failed to unregister task" << std::endl;
+        ret = HotLoader::instance().unregister_task("config2.json");
+        if (ret != 0) {
+            std::cerr << "Failed to unregister task: " << ret << std::endl;
         } else {
             std::cout << "Task unregistered successfully." << std::endl;
         }

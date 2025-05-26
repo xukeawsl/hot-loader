@@ -1,10 +1,13 @@
 # hot-loader
 
-支持对 Linux 文件进行监控，文件写入并退出后触发用户注册的热加载任务
+基于 `epoll + inotify` 实现的 Linux 文件热加载器，文件变更后触发用户注册的热加载任务，触发场景：
+
+* 文件写入并退出
+* 文件被删除，之后某个时间又被创建
 
 ## 使用
 
-参考 `example.cpp`
+需要支持 C++17 的编译器
 
 ```cpp
 #include <iostream>
@@ -23,7 +26,7 @@ public:
 };
 
 int main() {
-    MyHotLoadTask task("../config1.json");
+    MyHotLoadTask task("config1.json");
 
     // step3: 初始化 HotLoader
     if (HotLoader::instance().init() != 0) {
@@ -47,11 +50,20 @@ int main() {
 
     std::thread([]() {
         // 运行后注册 Task，线程安全
-        HotLoader::instance().register_task(new MyHotLoadTask("../config2.cpp"), HotLoader::OWN_TASK);
+        int ret;
+        ret = HotLoader::instance().register_task(new MyHotLoadTask("config2.json"), HotLoader::OWN_TASK);
+        if (ret != 0) {
+            std::cerr << "Failed to register task: " << ret << std::endl;
+            return;
+        } else {
+            std::cout << "Task registered successfully." << std::endl;
+        }
         std::this_thread::sleep_for(std::chrono::seconds(10));
         // step5: 可以主动注销 Task
-        if (HotLoader::instance().unregister_task("../test.cpp") != 0) {
-            std::cerr << "Failed to unregister task" << std::endl;
+        ret = HotLoader::instance().unregister_task("config2.json");
+        if (ret != 0) {
+            std::cerr << "Failed to unregister task: " << ret << std::endl;
+            return;
         } else {
             std::cout << "Task unregistered successfully." << std::endl;
         }
