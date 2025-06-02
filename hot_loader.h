@@ -83,6 +83,10 @@ public:
     }
 
     int init() {
+        if (_initialized.load()) {
+            return 0; // Already initialized
+        }
+
         _inotify_fd = inotify_init1(IN_NONBLOCK);
         if (_inotify_fd < 0) {
             return -1; // Failed to initialize inotify
@@ -90,7 +94,7 @@ public:
 
         _epoll_fd = epoll_create1(0);
         if (_epoll_fd < 0) {
-            close(_inotify_fd);
+            close_file_descriptors();
             return -2; // Failed to create epoll instance
         }
 
@@ -98,6 +102,7 @@ public:
         event.events = EPOLLIN | EPOLLET; // Edge-triggered mode
         event.data.fd = _inotify_fd; // Associate the inotify fd with the event
         if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, _inotify_fd, &event) < 0) {
+            close_file_descriptors();
             perror("epoll_ctl failed");
             return -3; // Failed to add inotify fd to epoll
         }
@@ -239,16 +244,19 @@ private:
     HotLoader& operator=(const HotLoader&) = delete;
     HotLoader(HotLoader&&) = delete;
     HotLoader& operator=(HotLoader&&) = delete;
+
     ~HotLoader() {
         stop();
+        close_file_descriptors();
+    }
 
+    void close_file_descriptors() {
         if (_inotify_fd >= 0) {
-            close(_inotify_fd); // Close inotify file descriptor
+            close(_inotify_fd);
             _inotify_fd = -1;
         }
-
         if (_epoll_fd >= 0) {
-            close(_epoll_fd); // Close epoll file descriptor
+            close(_epoll_fd);
             _epoll_fd = -1;
         }
     }
@@ -265,7 +273,10 @@ private:
                 if (errno == EINTR) {
                     continue; // Interrupted, retry
                 }
-                break; // Error occurred
+
+                perror("epoll_wait failed");
+                stop();
+                return; // Error occurred
             }
 
             if (n_ready == 0) {
@@ -286,7 +297,7 @@ private:
                             }
 
                             perror("read inotify events");
-                            stop(); // Stop the HotLoader on read error
+                            stop();
                             return; // Error occurred
                         }
 
@@ -332,7 +343,7 @@ private:
                     task->on_reload();
 
                     task->set_watch_descriptor(wd);
-                    _watch_descriptors[wd] = task; // Update the watch descriptor map
+                    _watch_descriptors[wd] = task;
                 }
             }
         }
@@ -358,7 +369,7 @@ private:
             task->on_reload();
 
             task->set_watch_descriptor(wd);
-            _watch_descriptors[wd] = task; // Update the watch descriptor map
+            _watch_descriptors[wd] = task;
         } else {
             task->set_watch_descriptor(-1); // Reset if rewatch fails
         }
