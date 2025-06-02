@@ -13,6 +13,7 @@ public:
     }
 };
 
+// g++ example.cpp -o example -lpthread -std=c++17
 int main() {
     MyHotLoadTask task("config1.json");
 
