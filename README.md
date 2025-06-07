@@ -31,7 +31,7 @@ HotLoader
 
 
 ## 使用流程
-1. **实现自定义任务类**（继承 HotLoadTask 并重写 `on_reload()`
+1. **实现自定义任务类**（继承 HotLoadTask 并重写 `on_reload()`）
 2. **初始化 HotLoader**
 ```cpp
 HotLoader::instance().init();
